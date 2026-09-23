@@ -1,0 +1,151 @@
+import 'dart:async';
+import 'package:campus_mobile_experimental/app_constants.dart';
+import 'package:campus_mobile_experimental/app_styles.dart';
+import 'package:campus_mobile_experimental/core/providers/bottom_nav.dart';
+import 'package:campus_mobile_experimental/core/providers/map.dart';
+import 'package:campus_mobile_experimental/ui/common/build_info.dart';
+import 'package:campus_mobile_experimental/ui/profile/login.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:app_links/app_links.dart';
+import 'package:campus_mobile_experimental/core/providers/user.dart';
+import 'package:campus_mobile_experimental/core/utils/webview.dart';
+
+class Profile extends StatelessWidget {
+  /// deep links are received by this method
+  /// the specific host needs to be added in AndroidManifest.xml and Info.plist
+  /// currently, this method handles executing custom map query
+  Future<Null> initUniLinks(BuildContext context) async {
+    final appLinks = AppLinks();
+    StreamSubscription? _sub;
+
+    Uri? initialUri = await appLinks.getInitialAppLink();
+    String? initialLink = initialUri?.toString();
+    final bool hasInitialLink = initialLink != null;
+    final bool isSearchMapLink = hasInitialLink && initialLink.contains("deeplinking.searchmap");
+    if (hasInitialLink && isSearchMapLink) {
+      var uri = Uri.dataFromString(initialLink);
+      var query = uri.queryParameters['query']!;
+      Provider.of<MapsDataProvider>(context, listen: false).searchBarController.text = query;
+      Provider.of<MapsDataProvider>(context, listen: false).fetchLocations();
+      Provider.of<BottomNavigationBarProvider>(context, listen: false).currentIndex = NavigatorConstants.MAP_TAB;
+    }
+
+    _sub = appLinks.uriLinkStream.listen((Uri? uri) async {
+      String? link = uri?.toString();
+      final bool hasLink = link != null;
+      final bool isSearchMapLink = hasLink && link.contains("deeplinking.searchmap");
+      if (hasLink && isSearchMapLink) {
+        var query = uri!.queryParameters['query']!;
+        Provider.of<MapsDataProvider>(context, listen: false).searchBarController.text = query;
+        Provider.of<MapsDataProvider>(context, listen: false).fetchLocations();
+        Provider.of<BottomNavigationBarProvider>(context, listen: false).currentIndex = NavigatorConstants.MAP_TAB;
+        _sub?.cancel();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final _userDataProvider = Provider.of<UserDataProvider>(context);
+    final isLoggedIn = _userDataProvider.isLoggedIn;
+
+    initUniLinks(context);
+    return Container(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          Expanded(
+            child: ListView(
+              children: <Widget>[
+                Login(),
+                Divider(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? listTileDividerColorDark
+                      : listTileDividerColorLight, // Set the color of the divider
+                  thickness: 0.5, // Set the thickness of the divider
+                ),
+                ListTile(
+                  title: Text(
+                    'SETTINGS & SUPPORT',
+                    style: Theme.of(context).brightness == Brightness.dark ? titleMediumDark : titleMediumLight,
+                  ),
+                ),
+                ListTile(
+                  leading: Icon(Icons.drag_handle, color: Theme.of(context).iconTheme.color, size: 30.0),
+                  title: Text(
+                    'Card Settings',
+                    style: Theme.of(context).brightness == Brightness.dark ? linkTextDark : linkTextLight,
+                  ),
+                  onTap: () {
+                    Navigator.pushNamed(context, RoutePaths.CARDS_VIEW);
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark ? darkPrimaryColor : lightPrimaryColor,
+                        width: 3.0, // Set the border width
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(1.0), // Adjust the padding as needed
+                      child: Icon(
+                        Icons.question_mark,
+                        color: Theme.of(context).iconTheme.color,
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    'Feedback & Support',
+                    style: Theme.of(context).brightness == Brightness.dark ? linkTextDark : linkTextLight,
+                  ),
+                  onTap: handleFeedbackTap,
+                ),
+                ListTile(
+                  leading: Icon(Icons.lock, color: Theme.of(context).iconTheme.color, size: 30.0),
+                  title: Text(
+                    'View Privacy Policy',
+                    style: Theme.of(context).brightness == Brightness.dark ? linkTextDark : linkTextLight,
+                  ),
+                  onTap: handlePrivacyTap,
+                ),
+                if (isLoggedIn)
+                  ListTile(
+                    leading: Icon(Icons.warning_amber_rounded, color: Theme.of(context).iconTheme.color, size: 36.0),
+                    title: Text(
+                      'Report a Campus Facility Issue',
+                      style: Theme.of(context).brightness == Brightness.dark ? linkTextDark : linkTextLight,
+                    ),
+                    onTap: handleReportTap,
+                  ),
+              ],
+            ),
+          ),
+          BuildInfo(), // This will be at the bottom
+        ],
+      ),
+    );
+  }
+
+  // handleNotificationsTap(BuildContext context) {
+  //   Navigator.pushNamed(context, RoutePaths.NOTIFICATIONSFilter);
+  // }
+
+  Future<void> handleFeedbackTap() async {
+    const feedbackUrl = "https://eforms.ucsd.edu/view.php?id=857622";
+    openLink(feedbackUrl);
+  }
+
+  Future<void> handlePrivacyTap() async {
+    const privacyUrl = "https://mobile.ucsd.edu/privacy-policy.html";
+    openLink(privacyUrl);
+  }
+
+  Future<void> handleReportTap() async {
+    const reportUrl = "https://experience.arcgis.com/experience/91b8f66d6fa547f481c2a1cb6af252d0";
+    openLink(reportUrl);
+  }
+}

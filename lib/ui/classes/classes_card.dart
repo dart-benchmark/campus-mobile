@@ -1,0 +1,287 @@
+import 'package:campus_mobile_experimental/app_constants.dart';
+import 'package:campus_mobile_experimental/app_provider.dart';
+import 'package:campus_mobile_experimental/app_styles.dart';
+import 'package:campus_mobile_experimental/core/models/classes.dart';
+import 'package:campus_mobile_experimental/core/providers/cards.dart';
+import 'package:campus_mobile_experimental/core/providers/classes.dart';
+import 'package:campus_mobile_experimental/ui/classes/upcoming_classes.dart';
+import 'package:campus_mobile_experimental/ui/common/card_container.dart';
+import 'package:campus_mobile_experimental/ui/common/last_updated_widget.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:campus_mobile_experimental/ui/common/action_button.dart';
+
+const cardId = 'schedule';
+
+class ClassScheduleCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return CardContainer(
+      cardId: cardId,
+      active: context.select((CardsDataProvider p) => p.cardStates[cardId] ?? false),
+      hide: () => Provider.of<CardsDataProvider>(context, listen: false).toggleCard(cardId),
+      reload: () {
+        final bool isLoading = Provider.of<ClassScheduleDataProvider>(context, listen: false).isLoading;
+        if (isLoading)
+          return null;
+        else
+          Provider.of<ClassScheduleDataProvider>(context, listen: false).fetchData();
+      },
+      isLoading: Provider.of<ClassScheduleDataProvider>(context).isLoading,
+      titleText: CardTitleConstants.TITLE_MAP[cardId]!,
+      errorText: Provider.of<ClassScheduleDataProvider>(context).error,
+      child: () => buildClassScheduleCard(
+        context,
+        Provider.of<ClassScheduleDataProvider>(context).upcomingCourses,
+        Provider.of<ClassScheduleDataProvider>(context).selectedCourse,
+        Provider.of<ClassScheduleDataProvider>(context).lastUpdated,
+        Provider.of<ClassScheduleDataProvider>(context).nextDayWithClass,
+      ),
+      actionButtons: [
+        ActionButton(
+          buttonText: 'VIEW ALL CLASSES',
+          onPressed: () {
+            analytics.logEvent(name: '${cardId}_card_action', parameters: {'action': 'view_all'});
+            Navigator.pushNamed(context, RoutePaths.CLASS_SCHEDULE_VIEW_ALL);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget buildClassScheduleCard(BuildContext context, List<SectionData> courseData, int selectedCourse,
+      DateTime lastUpdated, String nextDayWithClasses) {
+    try {
+      final section = courseData[selectedCourse];
+      return Padding(
+        padding: const EdgeInsets.only(left: 2.0, top: 4.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              flex: 5,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Next Class',
+                        style: TextStyle(
+                          fontSize: 22.0,
+                          color:
+                              Theme.of(context).brightness == Brightness.light ? lightPrimaryColor : darkPrimaryColor2,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      // CSE 141L
+                      buildClassCode(context, '${section.subjectCode} ${section.courseCode}'),
+                      SizedBox(height: 3),
+                      // Laboratory
+                      buildClassType(context, section.meetingType!),
+                      SizedBox(height: 3),
+                      // Start and Finish Time:
+                      buildTimeRow(context, section.days!, section.time),
+                      SizedBox(height: 8),
+                      // Classroom Location:
+                      buildLocationRow(context, '${section.building} ${section.room}'),
+                      SizedBox(height: 8),
+                      // Evaluation Option:
+                      buildGradeEvaluationRow(context, section.gradeOption),
+                      // "Last updated: A few seconds ago
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4.0, top: 24.0),
+                        child: LastUpdatedWidget(time: lastUpdated),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Vertical Divider
+            SizedBox(
+              height: 276,
+              child: VerticalDivider(
+                color: listTileDividerColorDark,
+                thickness: 0.7,
+              ),
+            ),
+            // Right-hand side of the card //
+            Flexible(
+              flex: 4, // Adjusts width of Right Hand Side
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start, // Aligns content to the top
+                crossAxisAlignment: CrossAxisAlignment.start, // Align text to the left
+                children: [
+                  UpcomingCoursesList(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        StackTrace.fromString(e.toString()),
+        reason: "Classes Card: Failed to build card content.",
+        fatal: false,
+      );
+
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.only(top: 32, bottom: 48, left: 12),
+          child: Text(
+            "Your classes could not be displayed.\n\nIf the problem persists contact mobilesupport@ucsd.edu",
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+  }
+
+  // Heading 3 i.e. "CSE 141L"
+  Widget buildClassCode(BuildContext context, String className) {
+    return Text(className,
+        style: TextStyle(
+            fontSize: 17.0,
+            fontFamily: 'Refrigerator Deluxe',
+            letterSpacing: 1.2,
+            color: Theme.of(context).brightness == Brightness.light ? lightPrimaryColor : darkPrimaryColor2,
+            fontWeight: FontWeight.w900));
+  }
+
+  // Small body text i.e. "Laboratory"
+  Widget buildClassType(BuildContext context, String classType) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Text(
+        classType,
+        style: TextStyle(
+          fontSize: 17,
+          color:
+              Theme.of(context).brightness == Brightness.light ? descriptiveTextColorLight : descriptiveTextColorDark,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    );
+  }
+
+  // Start and Finish Time:
+  Widget buildTimeRow(BuildContext context, String? day, String? time) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4.0),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            Icons.access_time,
+            color: Theme.of(context).brightness == Brightness.light ? lightPrimaryColor : darkPrimaryColor2,
+            size: 34,
+          ),
+          SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Start and Finish Time:',
+                style: TextStyle(
+                  fontSize: 17,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? descriptiveTextColorLight
+                      : descriptiveTextColorDark,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              SizedBox(height: 5),
+              Text((day ?? 'TBA') + ' @ ' + (time ?? 'TBA'),
+                  style: TextStyle(
+                      fontSize: 15,
+                      color: Theme.of(context).brightness == Brightness.light ? lightPrimaryColor : darkPrimaryColor2,
+                      fontWeight: FontWeight.w700))
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildLocationRow(BuildContext context, String location) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4.0),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            Icons.location_city,
+            color: Theme.of(context).brightness == Brightness.light ? lightPrimaryColor : darkPrimaryColor2,
+            size: 34,
+          ),
+          SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Classroom Location:',
+                style: TextStyle(
+                  fontSize: 17,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? descriptiveTextColorLight
+                      : descriptiveTextColorDark,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              SizedBox(height: 5),
+              Text(
+                location,
+                style: TextStyle(
+                    fontSize: 15,
+                    letterSpacing: 0.8,
+                    color: Theme.of(context).brightness == Brightness.light ? lightPrimaryColor : darkPrimaryColor2,
+                    fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildGradeEvaluationRow(BuildContext context, String gradeEvaluation) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4.0),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.check_box_outlined,
+              color: Theme.of(context).brightness == Brightness.light ? lightPrimaryColor : darkPrimaryColor2,
+              size: 34),
+          SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Evaluation Option:',
+                style: TextStyle(
+                  fontSize: 17,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? descriptiveTextColorLight
+                      : descriptiveTextColorDark,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              SizedBox(height: 5),
+              Text(
+                gradeEvaluation,
+                style: TextStyle(
+                    fontSize: 16,
+                    color: Theme.of(context).brightness == Brightness.light ? lightPrimaryColor : darkPrimaryColor2,
+                    fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

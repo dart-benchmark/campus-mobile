@@ -1,0 +1,22 @@
+import 'package:campus_mobile_experimental/core/providers/notifications.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+class PushNotificationWrapper extends StatefulWidget {
+  PushNotificationWrapper({required this.child});
+  final Widget child;
+
+  @override
+  _PushNotificationWrapperState createState() => _PushNotificationWrapperState();
+}
+
+class _PushNotificationWrapperState extends State<PushNotificationWrapper> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    Provider.of<PushNotificationDataProvider>(context, listen: false).initPlatformState(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

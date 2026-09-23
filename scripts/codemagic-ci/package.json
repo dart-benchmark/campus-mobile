@@ -1,0 +1,25 @@
+{
+  "name": "codemagic-ci",
+  "version": "1.0.0",
+  "description": "Build scripts for Codemagic CI/CD",
+  "main": "set-env.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Charles Bryant <c3bryant@ucsd.edu",
+  "license": "ISC",
+  "dependencies": {
+    "abort-controller": "^3.0.0",
+    "moment": "^2.29.1",
+    "node-fetch": "^2.6.7",
+    "spsave": "^4.0.2",
+    "xlsx-template": "^1.4.2"
+  },
+  "devDependencies": {
+    "eslint": "^8.26.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-jest": "^27.1.4",
+    "jest": "^29.2.2"
+  }
+}

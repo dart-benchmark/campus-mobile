@@ -34,6 +34,9 @@ build/
 *.g.dart
 # TGPT Hive adapter (tracked for CI without build_runner in pre-test)
 !lib/core/models/tgpt_models/chat_message_persistent.g.dart
+# Hive adapters referenced from main.dart (tracked so the app analyzes/compiles without build_runner)
+!lib/core/models/authentication.g.dart
+!lib/core/models/user_profile.g.dart
 *.freezed.dart
 *.mocks.dart
 *.config.dart
